@@ -8,16 +8,16 @@
 namespace rbest
 {
 
-  template<typename VECS_TYPE, int STATE_DIM, int CONTROL_DIM, int OBSERVATION_DIM>
+  template<typename SYSTEM_MODEL_TYPE, typename OBSERVATION_MODEL_TYPE>
   class Filter
   {
   public:
-    using StateVector       = Eigen::Matrix<VECS_TYPE, STATE_DIM, 1>;
-    using ControlVector     = Eigen::Matrix<VECS_TYPE, CONTROL_DIM, 1>;
-    using ObservationVector = Eigen::Matrix<VECS_TYPE, OBSERVATION_DIM, 1>;
+    using StateVector       = typename SYSTEM_MODEL_TYPE::StateVector;
+    using ControlVector     = typename SYSTEM_MODEL_TYPE::ControlVector;
+    using ObservationVector = typename OBSERVATION_MODEL_TYPE::ObservationVector;
 
-    using SystemModelType      = SystemModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>;
-    using ObservationModelType = ObservationModel<VECS_TYPE, STATE_DIM, OBSERVATION_DIM>;
+    using SystemModelType      = SYSTEM_MODEL_TYPE;
+    using ObservationModelType = OBSERVATION_MODEL_TYPE;
     
   public:
     virtual void predict(SystemModelType const& systemModel, ControlVector const& control) = 0;
