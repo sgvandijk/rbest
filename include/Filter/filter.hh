@@ -23,5 +23,9 @@ namespace rbest
     virtual void predict(SystemModelType const& systemModel, ControlVector const& control) = 0;
 
     virtual void update(ObservationModelType const& observationModel, ObservationVector const& observation) = 0;
+
+    virtual void init(StateVector state) = 0;
+    
+    virtual StateVector getState() const = 0;
   };
 }

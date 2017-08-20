@@ -11,6 +11,8 @@ set(COMMON_COMPILE_FLAGS "-std=c++14 -Wall -Wno-int-in-bool-context")
 
 set(UNIT_TESTS
   test/TestSystemModel.cc
+
+  test/TestKalmanFilter.cc
   )
 
 include_directories(${EIGEN3_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/include)
