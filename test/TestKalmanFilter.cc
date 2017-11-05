@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <array>
 
-class DummySystemModel : public rbest::GaussianSystemModel<double, 2, 2>
+class DummySystemModel : public rbest::LinearSystemModel<double, 2, 2>
 {
 public:
   
@@ -28,15 +28,6 @@ TEST(TestKalmanFilter, predict_zero)
 }
 
 
-class StationarySystemModel : public rbest::GaussianSystemModel<double, 1, 1>
-{
-public:
-  StateVector predict(StateVector const& state, ControlVector const& control) override
-  {
-    return state;
-  }
-};
-
 TEST(TestKalmanFilter, constant_filter)
 {
   // Numerical example from:
@@ -44,11 +35,12 @@ TEST(TestKalmanFilter, constant_filter)
   
   using FilterType = rbest::KalmanFilter<double, 1, 1, 1>;
   using ObsModelType = FilterType::ObservationModelType;
+  using SystemModelType = FilterType::SystemModelType;
   
   auto filter = FilterType{};
   filter.init(FilterType::StateVector{0.});
 
-  auto systemModel = StationarySystemModel{};
+  auto systemModel = SystemModelType{};
   auto observationModel = ObsModelType{};
   observationModel.setObservationMatrix(ObsModelType::ObservationMatrix::Identity());
   observationModel.setObservationNoiseCovar(ObsModelType::ObservationNoiseCovar::Identity() * 0.1);

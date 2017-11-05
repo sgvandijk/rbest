@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Filter/filter.hh"
-#include "SystemModel/gaussiansystemmodel.hh"
+#include "SystemModel/linearsystemmodel.hh"
 #include "ObservationModel/linearobservationmodel.hh"
 
 #include <Eigen/Dense>
@@ -11,12 +11,12 @@ namespace rbest
 
   template<typename VECS_TYPE, int STATE_DIM, int CONTROL_DIM, int OBSERVATION_DIM>
   class KalmanFilter : public Filter<
-    GaussianSystemModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>,
+    LinearSystemModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>,
     LinearObservationModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>>
   {
   public:
     using Base = Filter<
-    GaussianSystemModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>,
+    LinearSystemModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>,
     LinearObservationModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>>;
     
     using typename Base::StateVector;
