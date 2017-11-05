@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "Filter/KalmanFilter/kalmanfilter.hh"
+#include "Filter/kalmanfilter.hh"
 
 #include <algorithm>
 #include <array>
@@ -43,7 +43,7 @@ TEST(TestKalmanFilter, constant_filter)
   // http://bilgin.esme.org/BitsAndBytes/KalmanFilterforDummies
   
   using FilterType = rbest::KalmanFilter<double, 1, 1, 1>;
-  using ObsModelType = rbest::LinearObservationModel<double, 1, 1>;
+  using ObsModelType = FilterType::ObservationModelType;
   
   auto filter = FilterType{};
   filter.init(FilterType::StateVector{0.});

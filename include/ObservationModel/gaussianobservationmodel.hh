@@ -10,7 +10,7 @@ namespace rbest
   class GaussianObservationModel : public ObservationModel<VECS_TYPE, STATE_DIM, OBSERVATION_DIM>
   {
   public:
-    using ObservationNoiseCovar = Eigen::Matrix<VECS_TYPE, STATE_DIM, STATE_DIM>;
+    using ObservationNoiseCovar = Eigen::Matrix<VECS_TYPE, OBSERVATION_DIM, OBSERVATION_DIM>;
 
   public:
     void setObservationNoiseCovar(ObservationNoiseCovar covar);

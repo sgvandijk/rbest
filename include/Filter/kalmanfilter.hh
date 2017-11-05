@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Filter/filter.hh"
-#include "SystemModel/GaussianSystemModel/gaussiansystemmodel.hh"
+#include "SystemModel/gaussiansystemmodel.hh"
 #include "ObservationModel/linearobservationmodel.hh"
 
 #include <Eigen/Dense>
@@ -34,6 +34,7 @@ namespace rbest
     void update(ObservationModelType const& observationModel, ObservationVector const& observation) override;
 
     void init(StateVector state) override;
+    void init(StateVector state, StateCovar covar);
     
     StateVector getState() const override;
     StateCovar getStateCovar() const;
@@ -52,11 +53,18 @@ namespace rbest
   template<typename VECS_TYPE, int STATE_DIM, int CONTROL_DIM, int OBSERVATION_DIM>
   void KalmanFilter<VECS_TYPE, STATE_DIM, CONTROL_DIM, OBSERVATION_DIM>::update(ObservationModelType const& observationModel, ObservationVector const& observation)
   {
-    auto const& obsMat = observationModel.getObservationMatrix();
+    // O x S
+    Eigen::Matrix<VECS_TYPE, OBSERVATION_DIM, STATE_DIM> const& obsMat =
+      observationModel.getObservationMatrix();
+
+    // O x 1
     ObservationVector residual = observation - obsMat * d_state;
-    typename ObservationModelType::ObservationNoiseCovar residualCovar =
+
+    // O x O
+    Eigen::Matrix<VECS_TYPE, OBSERVATION_DIM, OBSERVATION_DIM> residualCovar =
       observationModel.getObservationNoiseCovar() + obsMat * d_stateCovar * obsMat.transpose();
 
+    // S x O
     Eigen::Matrix<VECS_TYPE, STATE_DIM, OBSERVATION_DIM> gain =
       d_stateCovar * obsMat.transpose() * residualCovar.inverse();
 
@@ -69,6 +77,13 @@ namespace rbest
   {
     d_state = std::move(state);
     d_stateCovar = StateCovar::Identity();
+  }
+  
+  template<typename VECS_TYPE, int STATE_DIM, int CONTROL_DIM, int OBSERVATION_DIM>
+  void KalmanFilter<VECS_TYPE, STATE_DIM, CONTROL_DIM, OBSERVATION_DIM>::init(StateVector state, StateCovar covar)
+  {
+    d_state = std::move(state);
+    d_stateCovar = std::move(covar);
   }
   
   template<typename VECS_TYPE, int STATE_DIM, int CONTROL_DIM, int OBSERVATION_DIM>
