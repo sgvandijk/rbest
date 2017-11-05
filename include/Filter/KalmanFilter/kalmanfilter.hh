@@ -2,7 +2,9 @@
 
 #include "Filter/filter.hh"
 #include "SystemModel/GaussianSystemModel/gaussiansystemmodel.hh"
-#include "ObservationModel/GaussianObservationModel/gaussianobservationmodel.hh"
+#include "ObservationModel/linearobservationmodel.hh"
+
+#include <Eigen/Dense>
 
 namespace rbest
 {
@@ -10,12 +12,12 @@ namespace rbest
   template<typename VECS_TYPE, int STATE_DIM, int CONTROL_DIM, int OBSERVATION_DIM>
   class KalmanFilter : public Filter<
     GaussianSystemModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>,
-    GaussianObservationModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>>
+    LinearObservationModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>>
   {
   public:
     using Base = Filter<
     GaussianSystemModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>,
-    GaussianObservationModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>>;
+    LinearObservationModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>>;
     
     using typename Base::StateVector;
     using typename Base::ControlVector;
@@ -34,6 +36,7 @@ namespace rbest
     void init(StateVector state) override;
     
     StateVector getState() const override;
+    StateCovar getStateCovar() const;
     
   private:
     StateVector d_state;
@@ -49,7 +52,16 @@ namespace rbest
   template<typename VECS_TYPE, int STATE_DIM, int CONTROL_DIM, int OBSERVATION_DIM>
   void KalmanFilter<VECS_TYPE, STATE_DIM, CONTROL_DIM, OBSERVATION_DIM>::update(ObservationModelType const& observationModel, ObservationVector const& observation)
   {
-    d_state = observationModel
+    auto const& obsMat = observationModel.getObservationMatrix();
+    ObservationVector residual = observation - obsMat * d_state;
+    typename ObservationModelType::ObservationNoiseCovar residualCovar =
+      observationModel.getObservationNoiseCovar() + obsMat * d_stateCovar * obsMat.transpose();
+
+    Eigen::Matrix<VECS_TYPE, STATE_DIM, OBSERVATION_DIM> gain =
+      d_stateCovar * obsMat.transpose() * residualCovar.inverse();
+
+    d_state = d_state + gain * residual;
+    d_stateCovar = d_stateCovar - gain * residualCovar * gain.transpose();
   }
 
   template<typename VECS_TYPE, int STATE_DIM, int CONTROL_DIM, int OBSERVATION_DIM>
@@ -63,5 +75,11 @@ namespace rbest
   typename KalmanFilter<VECS_TYPE, STATE_DIM, CONTROL_DIM, OBSERVATION_DIM>::StateVector KalmanFilter<VECS_TYPE, STATE_DIM, CONTROL_DIM, OBSERVATION_DIM>::getState() const
   {
     return d_state;
+  }
+
+  template<typename VECS_TYPE, int STATE_DIM, int CONTROL_DIM, int OBSERVATION_DIM>
+  typename KalmanFilter<VECS_TYPE, STATE_DIM, CONTROL_DIM, OBSERVATION_DIM>::StateCovar KalmanFilter<VECS_TYPE, STATE_DIM, CONTROL_DIM, OBSERVATION_DIM>::getStateCovar() const
+  {
+    return d_stateCovar;
   }
 }

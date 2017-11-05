@@ -13,7 +13,7 @@ namespace rbest
     using ObservationVector = Eigen::Matrix<VECS_TYPE, OBSERVATION_DIM, 1>;
 
   public:
-    virtual ObservationVector observe(StateVector const& state) = 0;
+    virtual ObservationVector observe(StateVector const& state) const = 0;
   };
   
 }

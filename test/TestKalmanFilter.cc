@@ -37,23 +37,21 @@ public:
   }
 };
 
-class DirectObservationModel : public rbest::GaussianObservationModel<double, 1, 1>
-{
-public:
-  ObservationVector observe(StateVector const& state) override
-  {
-    return state;
-  }
-};
-  
 TEST(TestKalmanFilter, constant_filter)
 {
+  // Numerical example from:
+  // http://bilgin.esme.org/BitsAndBytes/KalmanFilterforDummies
+  
   using FilterType = rbest::KalmanFilter<double, 1, 1, 1>;
+  using ObsModelType = rbest::LinearObservationModel<double, 1, 1>;
+  
   auto filter = FilterType{};
   filter.init(FilterType::StateVector{0.});
 
   auto systemModel = StationarySystemModel{};
-  auto observationModel = DirectObservationModel{};
+  auto observationModel = ObsModelType{};
+  observationModel.setObservationMatrix(ObsModelType::ObservationMatrix::Identity());
+  observationModel.setObservationNoiseCovar(ObsModelType::ObservationNoiseCovar::Identity() * 0.1);
   
   auto observations = std::array<double, 10>{{
       0.39,
@@ -69,12 +67,12 @@ TEST(TestKalmanFilter, constant_filter)
     }};
 
 
-  auto states = std::array<double, 10>{};
-
+  auto states = std::array<std::pair<double, double>, 10>{};
+  
   std::transform(observations.begin(), observations.end(), states.begin(), [&](double obs) {
       filter.predict(systemModel, FilterType::ControlVector{0.0});
       filter.update(observationModel, FilterType::ObservationVector{obs});
-      return filter.getState()[0];
+      return std::make_pair(filter.getState()[0], filter.getStateCovar()(0, 0));
     });
   
   auto expectedStates = std::array<double, 10>{{
@@ -90,6 +88,22 @@ TEST(TestKalmanFilter, constant_filter)
       0.387
     }};
 
+  auto expectedCovars = std::array<double, 10>{{
+      0.091,
+      0.048,
+      0.032,
+      0.024,
+      0.020,
+      0.016,
+      0.014,
+      0.012,
+      0.011,
+      0.010
+    }};
+
   for (unsigned i = 0; i < states.size(); ++i)
-    ASSERT_EQ(expectedStates[i], states[i]);
+  {
+    ASSERT_NEAR(expectedStates[i], states[i].first, 0.001);
+    ASSERT_NEAR(expectedCovars[i], states[i].second, 0.001);
+  }
 }
