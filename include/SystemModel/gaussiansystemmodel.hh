@@ -5,6 +5,10 @@
 namespace rbest
 {
 
+  /** Model of a system with Gaussian noise
+   *
+   * Assumes process noise is drawn from N(0, Q), where Q is the noise covariance.
+   */
   template<typename VECS_TYPE, int STATE_DIM, int CONTROL_DIM>
   class GaussianSystemModel : public SystemModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>
   {

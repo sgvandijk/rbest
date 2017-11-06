@@ -4,7 +4,9 @@
 
 namespace rbest
 {
-  /** Model for observations with gaussian noise
+  /** Model for observations with Gaussian noise
+   *
+   * Assumes observation noise is drawn from N(0, R), where R is the noise covariance.
    */
   template<typename VECS_TYPE, int STATE_DIM, int OBSERVATION_DIM>
   class GaussianObservationModel : public ObservationModel<VECS_TYPE, STATE_DIM, OBSERVATION_DIM>

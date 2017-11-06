@@ -5,6 +5,15 @@
 namespace rbest
 {
 
+  /** Model of observations that are linear functions of state with Gaussian noise
+   *
+   * Models observations as:
+   *
+   *     o = H * x + v
+   *
+   * , where H is the observation matrix and v is the (Gaussian)
+   * observation noise.
+   */
   template<typename VECS_TYPE, int STATE_DIM, int OBSERVATION_DIM>
   class LinearObservationModel : public GaussianObservationModel<VECS_TYPE, STATE_DIM, OBSERVATION_DIM>
   {

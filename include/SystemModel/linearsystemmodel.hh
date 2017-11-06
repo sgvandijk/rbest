@@ -5,6 +5,15 @@
 namespace rbest
 {
 
+  /** Model of a linear system with gaussian noise
+   *
+   * Models the evolution of the system as:
+   *
+   *     x1 = F * x0 + B * u1 + w
+   *
+   * , where F is the transition matrix, B is the control matrix, u1
+   * is the control vector and w is the (Gaussian) process noise.
+   */
   template<typename VECS_TYPE, int STATE_DIM, int CONTROL_DIM>
   class LinearSystemModel : public GaussianSystemModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>
   {
