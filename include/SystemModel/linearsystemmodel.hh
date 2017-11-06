@@ -1,12 +1,12 @@
 #pragma once
 
-#include "SystemModel/systemmodel.hh"
+#include "SystemModel/gaussiansystemmodel.hh"
 
 namespace rbest
 {
 
   template<typename VECS_TYPE, int STATE_DIM, int CONTROL_DIM>
-  class LinearSystemModel : public SystemModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>
+  class LinearSystemModel : public GaussianSystemModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>
   {
   public:
     using Base = SystemModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>;

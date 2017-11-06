@@ -48,6 +48,11 @@ namespace rbest
   template<typename VECS_TYPE, int STATE_DIM, int CONTROL_DIM, int OBSERVATION_DIM>
   void KalmanFilter<VECS_TYPE, STATE_DIM, CONTROL_DIM, OBSERVATION_DIM>::predict(SystemModelType const& systemModel, ControlVector const& control)
   {
+    auto const& transMat = systemModel.getTransitionMatrix();
+    auto const& cntrlMat = systemModel.getControlMatrix();
+    
+    d_state = transMat * d_state + cntrlMat * control;
+    d_stateCovar = transMat * d_stateCovar * transMat.transpose() + systemModel.getSystemNoiseCovar();
   }
   
   template<typename VECS_TYPE, int STATE_DIM, int CONTROL_DIM, int OBSERVATION_DIM>
