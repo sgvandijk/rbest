@@ -1,6 +1,6 @@
 #pragma once
 
-#include "SystemModel/gaussiansystemmodel.hh"
+#include "SystemModel/differentiablesystemmodel.hh"
 
 namespace rbest
 {
@@ -15,16 +15,16 @@ namespace rbest
    * is the control vector and w is the (Gaussian) process noise.
    */
   template<typename VECS_TYPE, int STATE_DIM, int CONTROL_DIM>
-  class LinearSystemModel : public GaussianSystemModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>
+  class LinearSystemModel : public DifferentiableSystemModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>
   {
   public:
-    using Base = SystemModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>;
+    using Base = DifferentiableSystemModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>;
     using typename Base::StateVector;
     using typename Base::ControlVector;
+    using typename Base::Jacobian;
     
     using TransitionMatrix = Eigen::Matrix<VECS_TYPE, STATE_DIM, STATE_DIM>;
     using ControlMatrix = Eigen::Matrix<VECS_TYPE, STATE_DIM, CONTROL_DIM>;
-
   public:
     void setTransitionMatrix(TransitionMatrix mat);
 
@@ -34,6 +34,8 @@ namespace rbest
 
     ControlMatrix const& getControlMatrix() const;
 
+    Jacobian getJacobian(StateVector const& state, ControlVector const& control) const override;
+    
     StateVector predict(StateVector const& state, ControlVector const& control) override;
     
   private:
@@ -64,6 +66,12 @@ namespace rbest
   typename LinearSystemModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>::ControlMatrix const& LinearSystemModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>::getControlMatrix() const
   {
     return d_controlMatrix;
+  }
+
+  template<typename VECS_TYPE, int STATE_DIM, int CONTROL_DIM>
+  typename LinearSystemModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>::Jacobian LinearSystemModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>::getJacobian(StateVector const& state, ControlVector const& control) const
+  {
+    return d_transitionMatrix;
   }
 
   template<typename VECS_TYPE, int STATE_DIM, int CONTROL_DIM>

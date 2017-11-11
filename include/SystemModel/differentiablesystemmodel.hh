@@ -5,7 +5,7 @@
 namespace rbest
 {
 
-  /** Model of a nonlinear differentiable system with gaussian noise
+  /** Model of a (possibly nonlinear) differentiable system with gaussian noise
    *
    * Models the evolution of the system as:
    *
@@ -30,6 +30,6 @@ namespace rbest
      * derivatives of the transition function f(x0, u1) at given state
      * x0 and control u1.
      */
-    virtual Jacobian getJacobian(StateVector const& state, ControlVector const& control) = 0;
+    virtual Jacobian getJacobian(StateVector const& state, ControlVector const& control) const = 0;
   };
 }

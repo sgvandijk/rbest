@@ -54,12 +54,12 @@ public:
 public:
   LogisticMapModel(double r) : mR{r} {}
   
-  Jacobian getJacobian(StateVector const& state, ControlVector const& control)
+  Jacobian getJacobian(StateVector const& state, ControlVector const& control) const override
   {
     return (state * -2).array() + mR;
   }
 
-  StateVector predict(StateVector const& state, ControlVector const& control)
+  StateVector predict(StateVector const& state, ControlVector const& control) override
   {
     return mR * state.array() * (-state.array() + 1);
   }
