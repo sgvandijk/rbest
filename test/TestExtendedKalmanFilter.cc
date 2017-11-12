@@ -38,3 +38,49 @@ TEST(ExtendedKalmanFilter, linear)
     ASSERT_EQ(kf.getStateCovar(), ekf.getStateCovar());
   }
 }
+
+class SinObservationModel : public rbest::DifferentiableObservationModel<double, 1, 1>
+{
+public:
+  using StateVector = Eigen::Matrix<double, 1, 1>;
+  using ObservationVector = Eigen::Matrix<double, 1, 1>;
+
+  Eigen::Matrix<double, 1, 1> getJacobian(StateVector const& state) const override
+  {
+    return state.array().cos();
+  }
+  
+  ObservationVector observe(StateVector const& state) const override
+  {
+    return state.array().sin();
+  }
+};
+
+TEST(ExtendedKalmanFilter, cos_observation)
+{
+  // Stationary system where observations are passed through a sine
+  auto filter = rbest::ExtendedKalmanFilter<rbest::LinearSystemModel<double, 1, 1>, SinObservationModel>{};
+  using OneVector = Eigen::Matrix<double, 1, 1>;
+  
+  auto systemModel = rbest::LinearSystemModel<double, 1, 1>{};  
+  systemModel.setTransitionMatrix((OneVector{} << 1.0).finished());
+  systemModel.setControlMatrix((OneVector{} << 0.0).finished());
+  systemModel.setSystemNoiseCovar(OneVector::Zero());
+
+  auto observationModel = SinObservationModel{};
+  observationModel.setObservationNoiseCovar(OneVector::Ones() * 0.001);
+
+  filter.init(OneVector::Ones(), OneVector::Ones());
+
+  auto value = 0.6;
+  
+  for (int i = 0; i < 100; ++i)
+  {
+    filter.predict(systemModel, OneVector::Zero());
+    OneVector obs = OneVector{value}.array().sin() + OneVector::Random().array() * 0.0005;
+    filter.update(observationModel, obs);
+  }
+
+  ASSERT_NEAR(value, filter.getState()[0], 1e-3);
+  ASSERT_GT(1e-3, filter.getStateCovar()(0, 0));
+}

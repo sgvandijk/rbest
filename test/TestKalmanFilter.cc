@@ -143,15 +143,8 @@ TEST(KalmanFilter, tank_filling_filter)
   auto states = std::array<std::pair<double, double>, 10>{};
   
   std::transform(observations.begin(), observations.end(), states.begin(), [&](double obs) {
-      std::cout << "----------\n";
       filter.predict(systemModel, FilterType::ControlVector{0.0});
-      std::cout << " PREDICT\n";
-      std::cout << filter.getState() << "\n";
-      std::cout << filter.getStateCovar() << "\n";
       filter.update(observationModel, FilterType::ObservationVector{obs});
-      std::cout << " UPDATE\n";
-      std::cout << filter.getState() << "\n";
-      std::cout << filter.getStateCovar() << "\n";
       return std::make_pair(filter.getState()[0], filter.getStateCovar()(0, 0));
     });
   
