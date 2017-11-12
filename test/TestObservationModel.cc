@@ -2,7 +2,7 @@
 
 #include "ObservationModel/observationmodel.hh"
 #include "ObservationModel/linearobservationmodel.hh"
-#include "ObservationModel/differrentiableobservationmodel.hh"
+#include "ObservationModel/differentiableobservationmodel.hh"
 
 #include <cmath>
 
@@ -34,10 +34,10 @@ TEST(TestObservationModel, linear)
   ASSERT_EQ(ModelType::ObservationVector{4.0}, model.observe(ModelType::StateVector{2.0}));
 }
 
-class LogarithmicObservationModel : public rbest::DifferrentiableObservationModel<double, 1, 1>
+class LogarithmicObservationModel : public rbest::DifferentiableObservationModel<double, 1, 1>
 {
 public:
-  using Base = rbest::DifferrentiableObservationModel<double, 1, 1>;
+  using Base = rbest::DifferentiableObservationModel<double, 1, 1>;
   using StateVector = typename Base::StateVector;
   using ObservationVector = typename Base::ObservationVector;
   using Jacobian = typename Base::Jacobian;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ObservationModel/gaussianobservationmodel.hh"
+#include "ObservationModel/differentiableobservationmodel.hh"
 
 namespace rbest
 {
@@ -15,12 +15,13 @@ namespace rbest
    * observation noise.
    */
   template<typename VECS_TYPE, int STATE_DIM, int OBSERVATION_DIM>
-  class LinearObservationModel : public GaussianObservationModel<VECS_TYPE, STATE_DIM, OBSERVATION_DIM>
+  class LinearObservationModel : public DifferentiableObservationModel<VECS_TYPE, STATE_DIM, OBSERVATION_DIM>
   {
   public:
-    using Base = GaussianObservationModel<VECS_TYPE, STATE_DIM, OBSERVATION_DIM>;
+    using Base = DifferentiableObservationModel<VECS_TYPE, STATE_DIM, OBSERVATION_DIM>;
     using typename Base::StateVector;
     using typename Base::ObservationVector;
+    using typename Base::Jacobian;
     
     using ObservationMatrix = Eigen::Matrix<VECS_TYPE, OBSERVATION_DIM, STATE_DIM>;
 
@@ -29,6 +30,8 @@ namespace rbest
 
     ObservationMatrix const& getObservationMatrix() const;
 
+    Jacobian getJacobian(StateVector const& state) const override;
+    
     ObservationVector observe(StateVector const& state) const override;
     
   private:
@@ -44,6 +47,12 @@ namespace rbest
 
   template<typename VECS_TYPE, int STATE_DIM, int OBSERVATION_DIM>
   typename LinearObservationModel<VECS_TYPE, STATE_DIM, OBSERVATION_DIM>::ObservationMatrix const& LinearObservationModel<VECS_TYPE, STATE_DIM, OBSERVATION_DIM>::getObservationMatrix() const
+  {
+    return d_observationMatrix;
+  }
+
+  template<typename VECS_TYPE, int STATE_DIM, int OBSERVATION_DIM>
+  typename LinearObservationModel<VECS_TYPE, STATE_DIM, OBSERVATION_DIM>::Jacobian LinearObservationModel<VECS_TYPE, STATE_DIM, OBSERVATION_DIM>::getJacobian(StateVector const& state) const
   {
     return d_observationMatrix;
   }
