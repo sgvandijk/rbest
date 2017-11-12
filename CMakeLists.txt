@@ -1,8 +1,11 @@
-cmake_minimum_required(VERSION 2.10)
+cmake_minimum_required(VERSION 3.5)
 
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/)
 
 find_package(Eigen3 REQUIRED)
+
+set(BUILD_EXAMPLES ON CACHE BOOL "Build included examples")
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(CTest)
@@ -26,4 +29,8 @@ if(BUILD_TESTING)
   target_link_libraries(testrbest PRIVATE gtest gtest_main)
   set_target_properties(testrbest PROPERTIES COMPILE_FLAGS ${COMMON_COMPILE_FLAGS})
   add_test(rbest testrbest)
+endif()
+
+if(BUILD_EXAMPLES)
+  add_subdirectory(examples)
 endif()
