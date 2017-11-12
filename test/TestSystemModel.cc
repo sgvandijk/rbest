@@ -13,7 +13,7 @@ public:
   using Base::StateVector;
   using Base::ControlVector;
 
-  StateVector predict(StateVector const& state, ControlVector const& control)
+  StateVector predict(StateVector const& state, ControlVector const& control) override
   {
     return state + control;
   }
