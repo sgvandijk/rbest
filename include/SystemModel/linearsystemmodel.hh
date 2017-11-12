@@ -36,7 +36,7 @@ namespace rbest
 
     Jacobian getJacobian(StateVector const& state, ControlVector const& control) const override;
     
-    StateVector predict(StateVector const& state, ControlVector const& control) override;
+    StateVector predict(StateVector const& state, ControlVector const& control) const override;
     
   private:
     TransitionMatrix d_transitionMatrix;
@@ -75,7 +75,7 @@ namespace rbest
   }
 
   template<typename VECS_TYPE, int STATE_DIM, int CONTROL_DIM>
-  typename LinearSystemModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>::StateVector LinearSystemModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>::predict(StateVector const& state, ControlVector const& control)
+  typename LinearSystemModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>::StateVector LinearSystemModel<VECS_TYPE, STATE_DIM, CONTROL_DIM>::predict(StateVector const& state, ControlVector const& control) const
   {
     return d_transitionMatrix * state + d_controlMatrix * control;
   }

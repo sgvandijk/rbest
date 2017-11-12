@@ -23,7 +23,7 @@ namespace rbest
      *
      * @returns a noise-free prediction
      */
-    virtual StateVector predict(StateVector const& state, ControlVector const& control) = 0;
+    virtual StateVector predict(StateVector const& state, ControlVector const& control) const = 0;
   };
 
 }

@@ -58,18 +58,10 @@ namespace rbest
   template<typename VECS_TYPE, int STATE_DIM, int CONTROL_DIM, int OBSERVATION_DIM>
   void KalmanFilter<VECS_TYPE, STATE_DIM, CONTROL_DIM, OBSERVATION_DIM>::update(ObservationModelType const& observationModel, ObservationVector const& observation)
   {
-    // O x S
-    Eigen::Matrix<VECS_TYPE, OBSERVATION_DIM, STATE_DIM> const& obsMat =
-      observationModel.getObservationMatrix();
-
-    // O x 1
+    auto const& obsMat = observationModel.getObservationMatrix();
     ObservationVector residual = observation - obsMat * d_state;
-
-    // O x O
     Eigen::Matrix<VECS_TYPE, OBSERVATION_DIM, OBSERVATION_DIM> residualCovar =
       observationModel.getObservationNoiseCovar() + obsMat * d_stateCovar * obsMat.transpose();
-
-    // S x O
     Eigen::Matrix<VECS_TYPE, STATE_DIM, OBSERVATION_DIM> gain =
       d_stateCovar * obsMat.transpose() * residualCovar.inverse();
 

@@ -22,7 +22,7 @@ namespace rbest
     using StateVector = typename Base::StateVector;
     using ObservationVector = typename Base::ObservationVector;
 
-    using Jacobian = Eigen::Matrix<VECS_TYPE, STATE_DIM, OBSERVATION_DIM>;
+    using Jacobian = Eigen::Matrix<VECS_TYPE, OBSERVATION_DIM, STATE_DIM>;
     
   public:
     /** Determine observation Jacobian

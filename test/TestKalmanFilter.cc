@@ -9,7 +9,7 @@ class DummySystemModel : public rbest::LinearSystemModel<double, 2, 2>
 {
 public:
   
-  StateVector predict(StateVector const& state, ControlVector const& control) override
+  StateVector predict(StateVector const& state, ControlVector const& control) const override
   {
     return state + control;
   }

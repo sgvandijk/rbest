@@ -13,7 +13,7 @@ public:
   using Base::StateVector;
   using Base::ControlVector;
 
-  StateVector predict(StateVector const& state, ControlVector const& control) override
+  StateVector predict(StateVector const& state, ControlVector const& control) const override
   {
     return state + control;
   }
@@ -59,7 +59,7 @@ public:
     return (state * -2).array() + mR;
   }
 
-  StateVector predict(StateVector const& state, ControlVector const& control) override
+  StateVector predict(StateVector const& state, ControlVector const& control) const override
   {
     return mR * state.array() * (-state.array() + 1);
   }

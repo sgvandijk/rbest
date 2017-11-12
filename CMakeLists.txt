@@ -13,6 +13,7 @@ set(UNIT_TESTS
   test/TestSystemModel.cc
   test/TestObservationModel.cc
   test/TestKalmanFilter.cc
+  test/TestExtendedKalmanFilter.cc
   )
 
 include_directories(${EIGEN3_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/include)
