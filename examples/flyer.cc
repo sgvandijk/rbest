@@ -4,6 +4,7 @@
 #include <iostream>
 #include <cmath>
 #include <list>
+#include <random>
 
 constexpr int SCREEN_WIDTH = 800;
 constexpr int SCREEN_HEIGHT = 600;
@@ -44,6 +45,11 @@ int main(int argc, char const** argv)
   // Flyer moves horizontally at constant speed, which is not filtered
   auto xSpeed = 5.0;
 
+  auto randGen = std::default_random_engine{};
+  
+  auto systemNoiseDist = std::normal_distribution<double>{0., 0.1};
+  auto systemNoise = [&]() { return systemNoiseDist(randGen); };
+  
   
   auto gridSize = 100;
   
@@ -81,8 +87,8 @@ int main(int argc, char const** argv)
     
     // Update state
     realState.x() += xSpeed;
-    realState.y() += realState.z();
-    realState.z() += yAccel;
+    realState.y() += realState.z() + systemNoise();
+    realState.z() += yAccel + systemNoise();
 
     // render
 
