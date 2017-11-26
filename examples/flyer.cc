@@ -1,7 +1,6 @@
-#include "Filter/kalmanfilter.hh"
+#include "exampleapp.hh"
 
-#include <SDL.h>
-#include <SDL2_gfxPrimitives.h>
+#include "Filter/kalmanfilter.hh"
 
 #include <iostream>
 #include <cmath>
@@ -11,257 +10,271 @@
 constexpr int SCREEN_WIDTH = 1024;
 constexpr int SCREEN_HEIGHT = 768;
 
-int main(int argc, char const** argv)
+using namespace rbest;
+using namespace Eigen;
+
+class FlyerApp : public ExampleApp
 {
-  if (SDL_Init(SDL_INIT_VIDEO) < 0)
-  {
-    std::cerr << "SDL could not initialize! SDL_Error: " << SDL_GetError() << "\n";
-    return -1;
-  }
+protected:
+  void initSystem() override;
+  void initFilter() override;
 
-  auto window = SDL_CreateWindow("RBEst - Flyer [Kalman Filter]",
-                                 SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-                                 SCREEN_WIDTH, SCREEN_HEIGHT,
-                                 SDL_WINDOW_SHOWN );
-  if (window == nullptr)
-  {
-    std::cerr << "Window could not be created! SDL_Error: " << SDL_GetError() << "\n";
-    return -1;
-  }
-
-  auto renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED );
-  if(renderer == nullptr )
-  {
-    std::cerr << "Renderer could not be created! SDL Error: " << SDL_GetError() << "\n";
-    return -1;
-  }
+  void onStepStart() override;
+  void handleEvent(SDL_Event const& event) override;
+  void updateState() override;
+  void updateFilter() override;
+  void render() override;
   
-  // State consists of height and vertical velocity
-  // Flyer moves horizontally at constant speed, which is not filtered
-  auto realState = Eigen::Vector3d{0.0, 0.0, 0.0};
-  auto stateHistory = std::list<Eigen::Vector3d>{};  
-  auto estHistory = std::list<Eigen::Vector3d>{};
-  auto stdHistory = std::list<Eigen::Vector2d>{};
-  auto obsHistory = std::list<Eigen::Vector2d>{};
+private:
+  // System constants
+  static constexpr double xSpeed = 5.0;
+  static constexpr double controlAccel = 0.5;
   
-  auto xSpeed = 5.0;
+  static constexpr double systemNoiseStd = 0.1;
+  static constexpr double observationNoiseStd = 25.0;
 
-  auto randGen = std::default_random_engine{};
-
-  auto systemNoiseStd = 0.1;
-  auto systemNoiseVar = systemNoiseStd * systemNoiseStd;
-  auto systemNoiseDist = std::normal_distribution<double>{0., systemNoiseStd};
-  auto systemNoise = [&]() { return systemNoiseDist(randGen); };
-
-  auto observationNoiseStd = 25.;
-  auto observationNoiseVar = observationNoiseStd * observationNoiseStd;
-  auto observationNoiseDist = std::normal_distribution<double>{0., observationNoiseStd};
-  auto observationNoise = [&]() { return observationNoiseDist(randGen); };
+  // Render constants
+  static constexpr int gridSize = 100;
   
-  // Filter
-  // State to be filtered consists of height and vertical velocity
-  // Only vertical velocity is controlled, and only height is observed
-  using Filter = rbest::KalmanFilter<double, 2, 1, 1>;
-  auto filter = Filter{};
-  filter.init(Eigen::Vector2d(0, 0), Eigen::Matrix2d::Ones() * 1e4);
+  Eigen::Vector3d mState;
+
+  using Filter = KalmanFilter<double, 2, 1, 1>;
+  Filter mFilter;
+  Filter::SystemModelType mSystemModel;
+  Filter::ObservationModelType mObservationModel;
+
+  std::default_random_engine mRandGen;
+  std::function<double()> mObservationNoise;
+  std::function<double()> mSystemNoise;
+
+  Filter::ControlVector mControl;
+  Filter::ObservationVector mObservation;
   
-  auto systemModel = Filter::SystemModelType{};
-  systemModel.setTransitionMatrix((Filter::SystemModelType::TransitionMatrix{} <<
+  std::list<Vector3d> mStateHistory;
+  std::list<Vector3d> mEstHistory;
+  std::list<Vector2d> mStdHistory;
+  std::list<Vector2d> mObsHistory;
+
+};
+
+constexpr double FlyerApp::xSpeed;
+constexpr double FlyerApp::controlAccel;
+  
+constexpr double FlyerApp::systemNoiseStd;
+constexpr double FlyerApp::observationNoiseStd;
+
+constexpr int FlyerApp::gridSize;
+
+void FlyerApp::initSystem()
+{
+  mState = Vector3d::Zero();
+
+  mSystemNoise = [this]() {
+      auto systemNoiseDist = std::normal_distribution<double>{0., systemNoiseStd};
+      return systemNoiseDist(mRandGen);
+  };
+
+  mObservationNoise = [this]() {
+    auto observationNoiseDist = std::normal_distribution<double>{0., observationNoiseStd};
+    return observationNoiseDist(mRandGen);
+  };
+}
+
+void FlyerApp::initFilter()
+{
+  mFilter.init(Eigen::Vector2d::Zero(), Eigen::Matrix2d::Ones() * 1e4);
+  
+  mSystemModel = Filter::SystemModelType{};
+  mSystemModel.setTransitionMatrix((Filter::SystemModelType::TransitionMatrix{} <<
                                    1., 1.,
                                    0., 1.).finished());
-  systemModel.setControlMatrix((Filter::SystemModelType::ControlMatrix{} << 0., 0.05).finished());
-  systemModel.setSystemNoiseCovar((Filter::SystemModelType::SystemNoiseCovar{} <<
+  mSystemModel.setControlMatrix((Filter::SystemModelType::ControlMatrix{}
+<< 0., controlAccel).finished());
+
+  auto systemNoiseVar = systemNoiseStd * systemNoiseStd;
+  mSystemModel.setSystemNoiseCovar((Filter::SystemModelType::SystemNoiseCovar{} <<
                                    systemNoiseVar, 0.,
                                    0., systemNoiseVar).finished());
 
-  auto observationModel = Filter::ObservationModelType{};
-  observationModel.setObservationMatrix((Filter::ObservationModelType::ObservationMatrix{} << 1., 0.).finished());
-  observationModel.setObservationNoiseCovar((Filter::ObservationModelType::ObservationNoiseCovar{} << observationNoiseVar).finished());
-  
-  // Visualisation details
-  auto gridSize = 100;
-  
-  auto quit = false;
-  auto paused = false;
-  auto event = SDL_Event{};
-  while (!quit)
+  mObservationModel = Filter::ObservationModelType{};
+  mObservationModel.setObservationMatrix((Filter::ObservationModelType::ObservationMatrix{} << 1., 0.).finished());
+  auto observationNoiseVar = observationNoiseStd * observationNoiseStd;
+  mObservationModel.setObservationNoiseCovar((Filter::ObservationModelType::ObservationNoiseCovar{} << observationNoiseVar).finished());
+}
+
+
+void FlyerApp::onStepStart()
+{
+  mControl.array() = 0.;
+}
+
+void FlyerApp::handleEvent(SDL_Event const& event)
+{
+  switch (event.type)
   {
-    auto control = 0.0;
-    
-    while (SDL_PollEvent(&event) != 0)
+  case SDL_KEYDOWN:
+    switch (event.key.keysym.sym)
     {
-      switch (event.type)
-      {
-      case SDL_QUIT:
-        quit = true;
-        break;
-        
-      case SDL_KEYDOWN:
-        switch (event.key.keysym.sym)
-        {
-        case SDLK_q:
-          quit = true;
-          break;
-        case SDLK_p:
-          paused = !paused;
-          break;
-        case SDLK_UP:
-          control = 1.;
-          break;
-        case SDLK_DOWN:
-          control = -1.;
-        }
-        break;
-      }      
+    case SDLK_UP:
+      mControl(0) = 1.;
+      break;
+    case SDLK_DOWN:
+      mControl(0) = -1.;
     }
+    break;
+  }      
+}
 
-    if (paused)
-    {
-      SDL_Delay(10);
-      continue;
-    }
-    
-    auto yAccel = control * 0.1;
+void FlyerApp::updateState()
+{
+  // Store history
+  auto oldStateEst = mFilter.getState();
+  auto oldStateCovar = mFilter.getStateCovar();
+  auto oldStateStd = std::sqrt(oldStateCovar(0, 0));
+  mObservation(0) = mState.y() + mObservationNoise();
 
-    // Store history
-    auto oldStateEst = filter.getState();
-    auto oldStateCovar = filter.getStateCovar();
-    auto oldStateStd = std::sqrt(oldStateCovar(0, 0));
-    auto observation = realState.y() + observationNoise();
-
-    stateHistory.push_back(realState);
-    while (stateHistory.size() > SCREEN_WIDTH / xSpeed)
-      stateHistory.pop_front();
-
-    estHistory.push_back(Eigen::Vector3d{realState.x(), oldStateEst(0), oldStateEst(1)});
-    while (estHistory.size() > SCREEN_WIDTH / xSpeed)
-      estHistory.pop_front();
-
-    stdHistory.push_back(Eigen::Vector2d{realState.x(), oldStateStd});
-    while (stdHistory.size() > SCREEN_WIDTH / xSpeed)
-      stdHistory.pop_front();
-
-    obsHistory.push_back(Eigen::Vector2d{realState.x(), observation});
-    while (obsHistory.size() > SCREEN_WIDTH / xSpeed)
-      obsHistory.pop_front();
-
-    // Update state
-    realState.x() += xSpeed;
-    realState.y() += realState.z() + systemNoise();
-    realState.z() += yAccel + systemNoise();
-
-    // Run filter
-    filter.predict(systemModel, Eigen::Matrix<double, 1, 1>{control});
-    filter.update(observationModel, Eigen::Matrix<double, 1, 1>{observation});
-
-    auto stateEst = filter.getState();
-    auto stateCovar = filter.getStateCovar();
-    auto stateStd = std::sqrt(stateCovar(0, 0));
-
-    // render
-
-    // Clear screen
-    SDL_SetRenderDrawColor(renderer, 0x2E, 0x34, 0x36, 0xFF );
-    SDL_RenderClear(renderer);
-
-    // Draw grid
-    SDL_SetRenderDrawColor(renderer, 0x55, 0x57, 0x53, 0xFF );
-    for (auto gx = std::fmod(-realState.x(), gridSize); gx < SCREEN_WIDTH; gx += gridSize)
-    {
-      SDL_RenderDrawLine(renderer, gx, 0, gx, SCREEN_HEIGHT);
-    }
-
-    for (auto gy = std::fmod(realState.y(), gridSize); gy < SCREEN_HEIGHT; gy += gridSize)
-    {
-      SDL_RenderDrawLine(renderer, 0, gy, SCREEN_WIDTH, gy);
-    }
-
-    // Draw history
-    // Observation history
-    SDL_SetRenderDrawColor(renderer, 0xA4, 0x00, 0x00, 0xFF );
-    for (auto const& obs : obsHistory)
-    {
-      auto obsRect = SDL_Rect{int(SCREEN_WIDTH - 100 + obs.x() - realState.x() - 2),
-                              int(SCREEN_HEIGHT / 2 - obs.y() + realState.y() - 2),
-                              4, 4};
-      SDL_RenderFillRect(renderer, &obsRect);
-    }
-
-    // State history
-    auto siter = stateHistory.begin();
-    auto hs1 = *siter++;
-    for ( ; siter != stateHistory.end(); ++siter)
-    {
-      auto hs2 = *siter;
-      thickLineRGBA(renderer,
-                     SCREEN_WIDTH - 100 + hs1.x() - realState.x(), SCREEN_HEIGHT / 2 - hs1.y() + realState.y(),
-                     SCREEN_WIDTH - 100 + hs2.x() - realState.x(), SCREEN_HEIGHT / 2 - hs2.y() + realState.y(),
-                     2, 0xf5, 0x79, 0x00, 0xFF);
-      hs1 = hs2;
-    }
-
-    // Estimation history
-    auto eiter = estHistory.begin();
-    auto he1 = *eiter++;
-    for ( ; eiter != estHistory.end(); ++eiter)
-    {
-      auto he2 = *eiter;
-      thickLineRGBA(renderer,
-                    SCREEN_WIDTH - 100 + he1.x() - realState.x(), SCREEN_HEIGHT / 2 - he1.y() + realState.y(),
-                    SCREEN_WIDTH - 100 + he2.x() - realState.x(), SCREEN_HEIGHT / 2 - he2.y() + realState.y(),
-                    2, 0x73, 0xD2, 0x16, 0xFF);
-      he1 = he2;
-    }
-
-    // Standard deviation history
-    auto vx = std::vector<int16_t>(stdHistory.size() * 2);
-    auto vy = std::vector<int16_t>(stdHistory.size() * 2);
-    int i = 0;
-    auto estIter = estHistory.begin();
-    for (auto const& v : stdHistory)
-    {
-        vx[i] = SCREEN_WIDTH - 100 + v.x() - realState.x();
-        vy[i] = SCREEN_HEIGHT / 2 - estIter->y() + realState.y() - v.y() * 2;
-        
-        vx[vx.size() - i - 1] = SCREEN_WIDTH - 100 + v.x() - realState.x();
-        vy[vy.size() - i - 1] = SCREEN_HEIGHT / 2 - estIter->y() + realState.y() + v.y() * 2;
-
-        ++i;
-        ++estIter;
-    }
-    filledPolygonRGBA(renderer, vx.data(), vy.data(), vx.size(), 0x4E, 0x9A, 0x06, 0x40);
-    
-    // Draw flyer
-    SDL_SetRenderDrawColor(renderer, 0xfC, 0xAF, 0x3E, 0xFF );
-    auto flyer = SDL_Rect{SCREEN_WIDTH - 100 - 2, SCREEN_HEIGHT / 2 - 2, 4, 4};
-    SDL_RenderFillRect(renderer, &flyer);
-    
-    // Draw estimated state
-    SDL_SetRenderDrawColor(renderer, 0x8A, 0xE2, 0x34, 0xFF );
-    auto flyerEst = SDL_Rect{int(SCREEN_WIDTH - 100 - 2),
-                             int(SCREEN_HEIGHT / 2 - stateEst(0) + realState.y() - 2),
-                             4, 4};
-    SDL_RenderFillRect(renderer, &flyerEst);
-
-    SDL_SetRenderDrawColor(renderer, 0x4E, 0x9A, 0x06, 0xFF );
-    auto flyerError1 = SDL_Rect{int(SCREEN_WIDTH - 100 - 2),
-                                int(SCREEN_HEIGHT / 2 - stateEst(0) + realState.y() - stateStd * 2 - 2),
-                                4, 4};
-    SDL_RenderFillRect(renderer, &flyerError1);
-    auto flyerError2 = SDL_Rect{int(SCREEN_WIDTH - 100 - 2),
-                                int(SCREEN_HEIGHT / 2 - stateEst(0) + realState.y() + stateStd * 2 - 2)
-                                , 4, 4};
-    SDL_RenderFillRect(renderer, &flyerError2);
-    
-    SDL_RenderPresent(renderer);
-    SDL_UpdateWindowSurface(window);
-
-    SDL_Delay(20);
-  }
+  auto nHistoryOnScreen = mScreenWidth / xSpeed;
   
-  SDL_DestroyWindow(window);
+  mStateHistory.push_back(mState);
+  while (mStateHistory.size() > nHistoryOnScreen)
+    mStateHistory.pop_front();
 
-  SDL_Quit();
+  mEstHistory.push_back(Eigen::Vector3d{mState.x(), oldStateEst(0), oldStateEst(1)});
+  while (mEstHistory.size() > nHistoryOnScreen)
+    mEstHistory.pop_front();
+  
+  mStdHistory.push_back(Eigen::Vector2d{mState.x(), oldStateStd});
+  while (mStdHistory.size() > nHistoryOnScreen)
+    mStdHistory.pop_front();
+  
+  mObsHistory.push_back(Eigen::Vector2d{mState.x(), mObservation(0)});
+  while (mObsHistory.size() > nHistoryOnScreen)
+    mObsHistory.pop_front();
+  
+  // Update state
+  mState.x() += xSpeed;
+  mState.y() += mState.z() + mSystemNoise();
+  mState.z() += mControl(0) * controlAccel + mSystemNoise();
+}
 
+void FlyerApp::updateFilter()
+{
+  mFilter.predict(mSystemModel, mControl);
+  mFilter.update(mObservationModel, mObservation);
+}
+
+void FlyerApp::render()
+{
+  auto stateEst = mFilter.getState();
+  auto stateCovar = mFilter.getStateCovar();
+  auto stateStd = std::sqrt(stateCovar(0, 0));
+
+
+  // Function to determine pixel coordinate from x,y in flyer space
+  // Always has flyer at centre vertically and 100 pixels from right window edge
+  auto toScreenCoord = [this](Vector2d const& coord) {
+    return Vector2i{
+      mScreenWidth - 100 + coord.x() - mState.x(),
+      mScreenHeight / 2 - coord.y() + mState.y()
+    };
+  };
+  
+  // Clear screen
+  SDL_SetRenderDrawColor(mRenderer, 0x2E, 0x34, 0x36, 0xFF );
+  SDL_RenderClear(mRenderer);
+
+  // Draw grid
+  SDL_SetRenderDrawColor(mRenderer, 0x55, 0x57, 0x53, 0xFF );
+  for (auto gx = std::fmod(-mState.x(), gridSize); gx < mScreenWidth; gx += gridSize)
+    SDL_RenderDrawLine(mRenderer, gx, 0, gx, mScreenHeight);
+
+  for (auto gy = std::fmod(mState.y(), gridSize); gy < mScreenHeight; gy += gridSize)
+    SDL_RenderDrawLine(mRenderer, 0, gy, mScreenWidth, gy);
+
+  // Draw history
+  // Observation history
+  SDL_SetRenderDrawColor(mRenderer, 0xA4, 0x00, 0x00, 0xFF );
+  for (auto const& obs : mObsHistory)
+  {
+    auto coord = toScreenCoord(obs);
+    auto obsRect = SDL_Rect{coord.x() - 2, coord.y() - 2, 4, 4};
+    SDL_RenderFillRect(mRenderer, &obsRect);
+  }
+
+  // State history
+  auto siter = mStateHistory.begin();
+  auto hs1 = *siter++;
+  for ( ; siter != mStateHistory.end(); ++siter)
+  {
+    auto hs2 = *siter;
+    auto coord1 = toScreenCoord(hs1.head<2>());
+    auto coord2 = toScreenCoord(hs2.head<2>());
+    
+    thickLineRGBA(mRenderer, coord1.x(), coord1.y(), coord2.x(), coord2.y(),
+                  2, 0xf5, 0x79, 0x00, 0xFF);
+    hs1 = hs2;
+  }
+
+  // Estimation history
+  auto eiter = mEstHistory.begin();
+  auto he1 = *eiter++;
+  for ( ; eiter != mEstHistory.end(); ++eiter)
+  {
+    auto he2 = *eiter;
+    auto coord1 = toScreenCoord(he1.head<2>());
+    auto coord2 = toScreenCoord(he2.head<2>());
+    thickLineRGBA(mRenderer, coord1.x(), coord1.y(), coord2.x(), coord2.y(),
+                  2, 0x73, 0xD2, 0x16, 0xFF);
+    he1 = he2;
+  }
+
+  // Standard deviation history
+  auto vx = std::vector<int16_t>(mStdHistory.size() * 2);
+  auto vy = std::vector<int16_t>(mStdHistory.size() * 2);
+  int i = 0;
+  auto estIter = mEstHistory.begin();
+  for (auto const& v : mStdHistory)
+  {
+    auto coord = toScreenCoord(estIter->head<2>());
+    vx[i] = coord.x();
+    vy[i] = coord.y() - v.y() * 2;
+        
+    vx[vx.size() - i - 1] = coord.x();
+    vy[vy.size() - i - 1] = coord.y() + v.y() * 2;
+
+    ++i;
+    ++estIter;
+  }
+  filledPolygonRGBA(mRenderer, vx.data(), vy.data(), vx.size(), 0x4E, 0x9A, 0x06, 0x40);
+    
+  // Draw flyer
+  SDL_SetRenderDrawColor(mRenderer, 0xfC, 0xAF, 0x3E, 0xFF );
+  auto coord = toScreenCoord(mState.head<2>());
+  auto flyer = SDL_Rect{coord.x() - 2, coord.y() - 2, 4, 4};
+  SDL_RenderFillRect(mRenderer, &flyer);
+    
+  // Draw estimated state
+  SDL_SetRenderDrawColor(mRenderer, 0x8A, 0xE2, 0x34, 0xFF );
+  coord = toScreenCoord(Vector2d{mState.x(), stateEst(0)});
+  auto flyerEst = SDL_Rect{coord.x() - 2, coord.y() - 2,
+                           4, 4};
+  SDL_RenderFillRect(mRenderer, &flyerEst);
+
+  SDL_SetRenderDrawColor(mRenderer, 0x4E, 0x9A, 0x06, 0xFF );
+  auto flyerError1 = SDL_Rect{coord.x() - 2, coord.y() - stateStd * 2 - 2,
+                              4, 4};
+  SDL_RenderFillRect(mRenderer, &flyerError1);
+  auto flyerError2 = SDL_Rect{coord.x() - 2, coord.y() + stateStd * 2 - 2,
+                              4, 4};
+  SDL_RenderFillRect(mRenderer, &flyerError2);
+}
+
+int main(int argc, char const** argv)
+{
+  auto app = FlyerApp{};
+
+  app.init(SCREEN_WIDTH, SCREEN_HEIGHT, "RBEst - Flyer [Kalman Filter]");
+  app.run();
+    
   return 0;
 }
