@@ -131,7 +131,6 @@ void FlyerApp::updateState()
   auto oldStateEst = mFilter.getState();
   auto oldStateCovar = mFilter.getStateCovar();
   auto oldStateStd = std::sqrt(oldStateCovar(0, 0));
-  mObservation(0) = mState.y() + mObservationNoise();
 
   auto nHistoryOnScreen = mScreenWidth / xSpeed;
   
@@ -155,6 +154,8 @@ void FlyerApp::updateState()
   mState.x() += xSpeed;
   mState.y() += mState.z() + mSystemNoise();
   mState.z() += mControl(0) * controlAccel + mSystemNoise();
+
+  mObservation(0) = mState.y() + mObservationNoise();
 }
 
 void FlyerApp::updateFilter()

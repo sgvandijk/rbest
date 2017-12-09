@@ -4,6 +4,8 @@
 #include "SystemModel/differentiablesystemmodel.hh"
 #include "ObservationModel/differentiableobservationmodel.hh"
 
+#include <Eigen/Dense>
+
 namespace rbest
 {
 
