@@ -9,8 +9,8 @@
 constexpr int SCREEN_WIDTH = 800;
 constexpr int SCREEN_HEIGHT = 800;
 
-constexpr double LANDMARK_X = 0.33;
-constexpr double LANDMARK_Y = 0.33;
+constexpr double LANDMARK_X = 0.75;
+constexpr double LANDMARK_Y = 0.75;
 
 using namespace rbest;
 using namespace Eigen;
@@ -58,8 +58,8 @@ protected:
   void render() override;
 
 private:
-  static constexpr double systemNoiseStd = 0.001;
-  static constexpr double observationNoiseStd = 0.5;
+  static constexpr double systemNoiseStd = 0.0001;
+  static constexpr double observationNoiseStd = 0.3;
 
   Vector3d mState;
 
@@ -80,7 +80,7 @@ private:
 
 void TankApp::initSystem()
 {
-  mState = Vector3d::Zero();
+  mState = Vector3d::Ones() * -0.75;
   
   mSystemNoise = [this]() {
       auto systemNoiseDist = std::normal_distribution<double>{0., systemNoiseStd};
@@ -95,12 +95,26 @@ void TankApp::initSystem()
 
 void TankApp::initFilter()
 {
-  mFilter.init(Filter::StateVector::Ones() * 0.2,
-               Filter::StateCovar::Identity() * 0.25 + Filter::StateCovar::Ones() * 0.25);
+  mFilter.init(Filter::StateVector::Zero(),
+               Filter::StateCovar::Identity());
+
+  auto systemNoiseVar = systemNoiseStd * systemNoiseStd;
+  mSystemModel.setSystemNoiseCovar((Filter::SystemModelType::SystemNoiseCovar{} <<
+                                    systemNoiseVar, 0., 0.,
+                                    0., systemNoiseVar, 0.,
+                                    0., 0., systemNoiseVar).finished());
+
+  auto observationNoiseVar = observationNoiseStd * observationNoiseStd;
+  mObservationModel.setObservationNoiseCovar((Filter::ObservationModelType::ObservationNoiseCovar{} <<
+                                              observationNoiseVar, 0., 0.,
+                                              0., observationNoiseVar, 0.,
+                                              0., 0., observationNoiseVar).finished());
+
 }
 
 void TankApp::onStepStart()
 {
+  std::cout << "----------\n";
 }
 
 void TankApp::handleEvent(SDL_Event const& event)
@@ -139,6 +153,8 @@ void TankApp::updateState()
   mObservation(0) += mObservationNoise();
   mObservation(1) += mObservationNoise();
   mObservation(2) += mObservationNoise();
+
+  std::cout << "Observation: " << mObservation.transpose() << "\n";
 }
 
 void TankApp::updateFilter()
@@ -158,6 +174,11 @@ void TankApp::render()
     };
   };
 
+  auto toPixels = [this](double length) {
+    auto border = 50;
+    return length * (mScreenWidth / 2 - border);
+  };
+  
   // Clear screen
   SDL_SetRenderDrawColor(mRenderer, 0x2E, 0x34, 0x36, 0xFF );
   SDL_RenderClear(mRenderer);
@@ -178,10 +199,10 @@ void TankApp::render()
   
   // Covar elipse
   // Find axes
+  std::cout << "Covar:\n" << stateEstimateCovar << "\n";
   auto solver = EigenSolver<Matrix<double, 2, 2>>{stateEstimateCovar.block<2, 2>(0, 0)};
   auto eigenVectors = solver.eigenvectors().real();
   auto eigenValues = solver.eigenvalues().real();
-
   std::cout << "Vectors:\n" << eigenVectors << "\n";
   std::cout << "Values:\n" << eigenValues << "\n";
 
@@ -191,12 +212,13 @@ void TankApp::render()
   std::cout << "Rotation:\n" << rot.matrix() << "\n";
 
   auto ellipsPoints = std::array<Vector2i, 40>{};
+  Vector2d ellipseRadii = eigenValues.array().sqrt() * 2;
   for (int i = 0; i < ellipsPoints.size(); ++i)
   {
     ellipsPoints[i] = toScreenCoord((stateEstimate.head<2>() + rot * Vector2d{
-        eigenValues.x() * cos(M_PI * 2 * i / ellipsPoints.size()),
-          eigenValues.y() * sin(M_PI * 2 * i / ellipsPoints.size())
-          }));
+          ellipseRadii(0) * cos(M_PI * 2 * i / ellipsPoints.size()),
+          ellipseRadii(1) * sin(M_PI * 2 * i / ellipsPoints.size())
+            }));
   }
 
   auto p1 = ellipsPoints[0];
@@ -261,11 +283,14 @@ TankObservationModel::ObservationVector TankObservationModel::observe(StateVecto
 TankObservationModel::Jacobian TankObservationModel::getJacobian(StateVector const& state) const
 {
   Vector2d landmarkDelta = Vector2d{LANDMARK_X, LANDMARK_Y} - state.head<2>();
-  return (Jacobian{} <<
+  Jacobian jacobian =  (
+    Jacobian{} <<
     -landmarkDelta.x() / landmarkDelta.norm(), -landmarkDelta.y() / landmarkDelta.norm(), 0,
-          landmarkDelta.y() / landmarkDelta.squaredNorm(), landmarkDelta.x() / landmarkDelta.squaredNorm(), -1,
-          0, 0, 1
+    landmarkDelta.y() / landmarkDelta.squaredNorm(), -landmarkDelta.x() / landmarkDelta.squaredNorm(), -1,
+    0, 0, 1
     ).finished();
+  std::cout << "Observation Jacobian:\n" << jacobian << "\n";
+  return jacobian;
 }
 
 int main(int argc, char const** argv)
